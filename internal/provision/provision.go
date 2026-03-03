@@ -250,6 +250,30 @@ func findGroupByGID(groupPath string, gid int) (string, error) {
 	return "", nil
 }
 
+// findFreeSystemGID scans a group file and returns the first available GID
+// in the system range (999 down to 100).
+func findFreeSystemGID(groupPath string) (int, error) {
+	data, err := os.ReadFile(groupPath)
+	if err != nil {
+		return -1, err
+	}
+	used := make(map[int]bool)
+	for line := range strings.SplitSeq(string(data), "\n") {
+		fields := strings.Split(line, ":")
+		if len(fields) >= 3 {
+			if gid, err := strconv.Atoi(fields[2]); err == nil {
+				used[gid] = true
+			}
+		}
+	}
+	for gid := 999; gid >= 100; gid-- {
+		if !used[gid] {
+			return gid, nil
+		}
+	}
+	return -1, fmt.Errorf("no free system GID in range 100-999")
+}
+
 // FindHostRenderGID returns the GID of the host's "render" group, or -1 if not found.
 func FindHostRenderGID() (int, error) {
 	return findGroupGID("/etc/group", "render")

@@ -1,6 +1,7 @@
 package provision
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,6 +217,61 @@ func TestFindGroupByGID(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFindFreeSystemGID(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			name:    "sparse file picks 999",
+			content: "root:x:0:\nvideo:x:44:\nrender:x:991:\n",
+			want:    999,
+		},
+		{
+			name:    "999 taken picks 998",
+			content: "root:x:0:\nfoo:x:999:\n",
+			want:    998,
+		},
+		{
+			name:    "empty file picks 999",
+			content: "",
+			want:    999,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tmp := filepath.Join(t.TempDir(), "group")
+			if err := os.WriteFile(tmp, []byte(tc.content), 0644); err != nil {
+				t.Fatalf("write temp group file: %v", err)
+			}
+			got, err := findFreeSystemGID(tmp)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("findFreeSystemGID() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+
+	// Full range should return error
+	t.Run("no free GID", func(t *testing.T) {
+		var lines []string
+		for i := 100; i <= 999; i++ {
+			lines = append(lines, fmt.Sprintf("g%d:x:%d:", i, i))
+		}
+		tmp := filepath.Join(t.TempDir(), "group")
+		if err := os.WriteFile(tmp, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
+			t.Fatalf("write temp group file: %v", err)
+		}
+		_, err := findFreeSystemGID(tmp)
+		if err == nil {
+			t.Error("expected error when no free GID available, got nil")
+		}
+	})
 }
 
 func TestEnsureRenderGroup(t *testing.T) {
