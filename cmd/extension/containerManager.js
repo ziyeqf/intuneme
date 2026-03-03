@@ -295,6 +295,36 @@ export const ContainerManager = GObject.registerClass({
         }
     }
 
+    /**
+     * Launch Microsoft Edge inside the container via `intuneme open edge`.
+     * No terminal needed — Edge opens its own window directly.
+     */
+    openEdge() {
+        try {
+            Gio.Subprocess.new(
+                [INTUNEME_BIN, 'open', 'edge'],
+                Gio.SubprocessFlags.NONE,
+            );
+        } catch (e) {
+            console.error(`[intuneme] Failed to launch Edge: ${e.message}`);
+        }
+    }
+
+    /**
+     * Launch Intune Portal inside the container via `intuneme open portal`.
+     * No terminal needed — Portal opens its own window directly.
+     */
+    openPortal() {
+        try {
+            Gio.Subprocess.new(
+                [INTUNEME_BIN, 'open', 'portal'],
+                Gio.SubprocessFlags.NONE,
+            );
+        } catch (e) {
+            console.error(`[intuneme] Failed to launch Intune Portal: ${e.message}`);
+        }
+    }
+
     destroy() {
         if (this._errorTimeoutId) {
             GLib.source_remove(this._errorTimeoutId);
