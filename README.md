@@ -53,7 +53,7 @@ When enabled, `intuneme start` also creates a login session inside the container
 The host needs:
 
 - **systemd-nspawn** and **machinectl** (package: `systemd-container`)
-- **podman** (used to pull and extract the OCI base image)
+- A container engine (**podman, docker, umoci** - used to pull and extract the OCI base image)
 - A graphical session (X11 or Wayland)
 
 On Debian/Ubuntu:
