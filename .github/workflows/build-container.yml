@@ -120,18 +120,25 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push To GHCR
-        uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2
         if: github.event_name != 'pull_request' && (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/tags/'))
         id: push
         env:
           REGISTRY_USER: ${{ github.actor }}
           REGISTRY_PASSWORD: ${{ github.token }}
-        with:
-          registry: ${{ env.IMAGE_REGISTRY }}
-          image: ${{ env.IMAGE_NAME }}
-          tags: ${{ steps.metadata.outputs.tags }}
-          username: ${{ env.REGISTRY_USER }}
-          password: ${{ env.REGISTRY_PASSWORD }}
+        run: |
+          IMAGE_FULL="${IMAGE_REGISTRY}/${IMAGE_NAME}"
+
+          echo "${REGISTRY_PASSWORD}" | buildah login \
+            --username "${REGISTRY_USER}" \
+            --password-stdin \
+            "${IMAGE_REGISTRY}"
+
+          for tag in ${{ steps.metadata.outputs.tags }}; do
+            buildah push \
+              --compression-format=zstd:chunked \
+              "${IMAGE_NAME}:${tag}" \
+              "docker://${IMAGE_FULL}:${tag}"
+          done
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
