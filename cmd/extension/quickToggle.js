@@ -40,6 +40,20 @@ class IntuneToggle extends QuickSettings.QuickMenuToggle {
         });
         this._shellItem.sensitive = false;
 
+        // Open Edge action
+        this._edgeItem = this.menu.addAction('Open Edge', () => {
+            this.menu.close();
+            this._manager.openEdge();
+        });
+        this._edgeItem.sensitive = false;
+
+        // Open Intune Portal action
+        this._portalItem = this.menu.addAction('Open Intune Portal', () => {
+            this.menu.close();
+            this._manager.openPortal();
+        });
+        this._portalItem.sensitive = false;
+
         // --- Bind to manager state ---
         this._managerSignals = [];
 
@@ -100,8 +114,10 @@ class IntuneToggle extends QuickSettings.QuickMenuToggle {
             this._manager.broker_running ? 'Running' : 'Stopped'
         }`;
 
-        // Shell item only available when running and not transitioning
+        // Shell/Edge/Portal items only available when running and not transitioning
         this._shellItem.sensitive = running && !transitioning;
+        this._edgeItem.sensitive = running && !transitioning;
+        this._portalItem.sensitive = running && !transitioning;
     }
 
     destroy() {
