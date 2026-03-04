@@ -39,6 +39,10 @@ func makeOpenAppCmd(use, short, command string) *cobra.Command {
 				return fmt.Errorf("container is not running — run 'intuneme start' first")
 			}
 
+			if err := nspawn.ValidateSudo(r); err != nil {
+				return fmt.Errorf("sudo authentication failed: %w", err)
+			}
+
 			return nspawn.Exec(r, cfg.MachineName, cfg.HostUser, cfg.HostUID, command)
 		},
 	}
