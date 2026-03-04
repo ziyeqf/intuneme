@@ -7,7 +7,7 @@ import (
 )
 
 var rootDir string
-var rep reporter.Reporter //nolint:unused // used by subcommands in subsequent commits
+var rep reporter.Reporter
 
 var rootCmd = &cobra.Command{
 	Use:   "intuneme",
