@@ -14,8 +14,21 @@ curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microso
 install -o root -g root -m 644 microsoft.gpg /usr/share/keyrings
 rm microsoft.gpg
 
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/$(lsb_release -rs)/prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/microsoft-ubuntu-$(lsb_release -cs)-prod.list
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list
+tee /etc/apt/sources.list.d/microsoft.sources > /dev/null << REPOEOF
+Types: deb
+URIs: https://packages.microsoft.com/ubuntu/$(lsb_release -rs)/prod
+Suites: $(lsb_release -cs)
+Components: main
+Architectures: $(dpkg --print-architecture)
+Signed-By: /usr/share/keyrings/microsoft.gpg
+
+Types: deb
+URIs: https://packages.microsoft.com/repos/edge
+Suites: stable
+Components: main
+Architectures: $(dpkg --print-architecture)
+Signed-By: /usr/share/keyrings/microsoft.gpg
+REPOEOF
 apt update -y
 
 # Remove no longer needed packages
@@ -45,6 +58,16 @@ apt install -y \
   libpulse0 \
   sudo \
   cracklib-runtime
+
+# Microsoft Edge install adds a redundant .list file; remove it
+if [[ -f /etc/apt/sources.list.d/microsoft-edge.list ]]; then
+  rm /etc/apt/sources.list.d/microsoft-edge.list
+fi
+
+# Remove repo_reenable_on_distupgrade option that Edge adds
+if [[ -f /etc/default/microsoft-edge ]]; then
+  sed -i 's/^repo_reenable_on_distupgrade=true$/repo_reenable_on_distupgrade=false/' /etc/default/microsoft-edge
+fi
 
 # Intune needs fixes to install properly
 # Install its dependencies first
