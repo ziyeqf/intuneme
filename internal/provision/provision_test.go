@@ -476,6 +476,72 @@ func TestCreateContainerUserNoRenderGroupSkipsIt(t *testing.T) {
 	}
 }
 
+func FuzzFindGroupGID(f *testing.F) {
+	f.Add("root:x:0:\nvideo:x:44:\nrender:x:991:\n", "render")
+	f.Add("root:x:0:\n", "render")
+	f.Add("", "render")
+	f.Add("render:x:notanumber:\n", "render")
+	f.Add(":::\n", "root")
+	f.Add("a:b:1:c:d:e:f\n", "a")
+
+	f.Fuzz(func(t *testing.T, content, group string) {
+		tmp := filepath.Join(t.TempDir(), "group")
+		if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
+			t.Fatalf("write temp file: %v", err)
+		}
+		gid, err := findGroupGID(tmp, group)
+		if err != nil {
+			return // parse errors are expected for malformed input
+		}
+		if gid < -1 {
+			t.Errorf("findGroupGID returned unexpected GID %d", gid)
+		}
+	})
+}
+
+func FuzzFindUserByUID(f *testing.F) {
+	f.Add("root:x:0:0:root:/root:/bin/bash\n", 0)
+	f.Add("nobody:x:65534:65534::/nonexistent:/usr/sbin/nologin\n", 1000)
+	f.Add("", 0)
+	f.Add(":::\n", 0)
+	f.Add("user:x:abc:1000::/home/user:/bin/bash\n", 1000)
+
+	f.Fuzz(func(t *testing.T, content string, uid int) {
+		tmp := filepath.Join(t.TempDir(), "passwd")
+		if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
+			t.Fatalf("write temp file: %v", err)
+		}
+		// Must never panic.
+		_, err := findUserByUID(tmp, uid)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func FuzzFindFreeSystemGID(f *testing.F) {
+	f.Add("root:x:0:\nvideo:x:44:\nrender:x:991:\n")
+	f.Add("")
+	f.Add("foo:x:999:\n")
+	f.Add(":::\n")
+	f.Add("a:b:notanumber:\n")
+
+	f.Fuzz(func(t *testing.T, content string) {
+		tmp := filepath.Join(t.TempDir(), "group")
+		if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
+			t.Fatalf("write temp file: %v", err)
+		}
+		// Must never panic.
+		gid, err := findFreeSystemGID(tmp)
+		if err != nil {
+			return // expected when all GIDs are taken
+		}
+		if gid < 100 || gid > 999 {
+			t.Errorf("findFreeSystemGID returned GID %d outside range 100-999", gid)
+		}
+	})
+}
+
 func TestWritePolkitRule(t *testing.T) {
 	tmp := t.TempDir()
 	rulesDir := filepath.Join(tmp, "etc", "polkit-1", "rules.d")

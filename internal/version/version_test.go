@@ -1,6 +1,9 @@
 package version
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestImageRef(t *testing.T) {
 	const registry = "ghcr.io/frostyard/ubuntu-intune"
@@ -31,4 +34,24 @@ func TestImageRef(t *testing.T) {
 			}
 		})
 	}
+}
+
+func FuzzImageRef(f *testing.F) {
+	f.Add("dev")
+	f.Add("v0.4.0")
+	f.Add("0.4.0")
+	f.Add("v0.4.0-2-g98e23e6")
+	f.Add("v0.4.0-dirty")
+	f.Add("")
+	f.Add("v0.4.0-rc1")
+	f.Add("999.999.999")
+
+	f.Fuzz(func(t *testing.T, version string) {
+		Version = version
+		ref := ImageRef()
+		// Must always return a valid image reference starting with the base.
+		if !strings.HasPrefix(ref, "ghcr.io/frostyard/ubuntu-intune:") {
+			t.Errorf("ImageRef() = %q, missing expected prefix", ref)
+		}
+	})
 }
