@@ -71,3 +71,21 @@ func TestLoadBrokerProxyDefault(t *testing.T) {
 		t.Error("BrokerProxy should default to false")
 	}
 }
+
+func FuzzLoad(f *testing.F) {
+	f.Add(`machine_name = "intuneme"` + "\n")
+	f.Add("broker_proxy = true\n")
+	f.Add(`machine_name = "test"` + "\n" + `rootfs_path = "/tmp/rootfs"` + "\n")
+	f.Add("")
+	f.Add("invalid toml {{{\n")
+	f.Add(`host_uid = 99999` + "\n")
+
+	f.Fuzz(func(t *testing.T, content string) {
+		tmp := t.TempDir()
+		if err := os.WriteFile(filepath.Join(tmp, "config.toml"), []byte(content), 0644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		// Must never panic regardless of TOML content.
+		_, _ = Load(tmp)
+	})
+}

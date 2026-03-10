@@ -194,3 +194,19 @@ func TestReadPasswordFileNotFound(t *testing.T) {
 		t.Fatal("expected error for missing file, got nil")
 	}
 }
+
+func FuzzValidatePassword(f *testing.F) {
+	f.Add("alice", "Correct3Horse!")
+	f.Add("alice", "short")
+	f.Add("", "Correct3Horse!")
+	f.Add("alice", "alice-Passw0rd!")
+	f.Add("alice", "ALICE-Passw0rd!")
+	f.Add("alice", "Aa1!Aa1!Aa1!")
+	f.Add("alice", "")
+	f.Add("", "")
+
+	f.Fuzz(func(t *testing.T, username, password string) {
+		// validatePassword must never panic regardless of input.
+		_ = validatePassword(username, password)
+	})
+}
