@@ -76,10 +76,24 @@ func HostDisplay() string {
 
 // WriteDisplayMarker writes the host DISPLAY value into the container rootfs
 // so that container scripts and services can read it.
-func WriteDisplayMarker(rootfs, display string) error {
-	path := filepath.Join(rootfs, displayMarkerPath)
+// Uses sudo install because the rootfs /etc/ is owned by root.
+func WriteDisplayMarker(r runner.Runner, rootfs, display string) error {
+	tmp, err := os.CreateTemp("", "intuneme-display-*")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+
 	content := fmt.Sprintf("DISPLAY=%s\n", display)
-	return os.WriteFile(path, []byte(content), 0644)
+	if _, err := tmp.Write([]byte(content)); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	_ = tmp.Close()
+
+	path := filepath.Join(rootfs, displayMarkerPath)
+	_, err = r.Run("sudo", "install", "-m", "0644", tmp.Name(), path)
+	return err
 }
 
 // DetectHostSockets checks which optional host sockets/files exist and returns

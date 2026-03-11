@@ -1,11 +1,33 @@
 package nspawn
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+type mockRunner struct {
+	commands []string
+}
+
+func (m *mockRunner) Run(name string, args ...string) ([]byte, error) {
+	m.commands = append(m.commands, name+" "+strings.Join(args, " "))
+	return nil, nil
+}
+
+func (m *mockRunner) RunAttached(name string, args ...string) error {
+	m.commands = append(m.commands, name+" "+strings.Join(args, " "))
+	return nil
+}
+
+func (m *mockRunner) RunBackground(name string, args ...string) error {
+	m.commands = append(m.commands, name+" "+strings.Join(args, " "))
+	return nil
+}
+
+func (m *mockRunner) LookPath(name string) (string, error) {
+	return "/usr/bin/" + name, nil
+}
 
 func TestBuildBootArgs(t *testing.T) {
 	sockets := []BindMount{
@@ -100,21 +122,23 @@ func TestHostDisplay_FallbackWhenSocketMissing(t *testing.T) {
 
 func TestWriteDisplayMarker(t *testing.T) {
 	tmpDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tmpDir, "etc"), 0755); err != nil {
-		t.Fatalf("create etc dir: %v", err)
-	}
 
-	if err := WriteDisplayMarker(tmpDir, ":1"); err != nil {
+	r := &mockRunner{}
+	if err := WriteDisplayMarker(r, tmpDir, ":1"); err != nil {
 		t.Fatalf("WriteDisplayMarker failed: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(tmpDir, displayMarkerPath))
-	if err != nil {
-		t.Fatalf("reading marker: %v", err)
+	// Verify sudo install was called targeting the correct path
+	if len(r.commands) != 1 {
+		t.Fatalf("expected 1 command, got %d: %v", len(r.commands), r.commands)
 	}
-	want := "DISPLAY=:1\n"
-	if string(data) != want {
-		t.Errorf("marker content = %q, want %q", string(data), want)
+	cmd := r.commands[0]
+	wantSuffix := filepath.Join(tmpDir, "etc", "intuneme-host-display")
+	if !strings.Contains(cmd, "sudo install -m 0644") {
+		t.Errorf("expected sudo install command, got: %s", cmd)
+	}
+	if !strings.HasSuffix(cmd, wantSuffix) {
+		t.Errorf("command should target %s, got: %s", wantSuffix, cmd)
 	}
 }
 
