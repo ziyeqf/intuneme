@@ -17,7 +17,7 @@ This mirrors the existing pattern in `cmd/start.go` where a poll loop waits for 
 
 - **Poll loop lives in `cmd/stop.go`, not in `nspawn.Stop()`** — keeps `nspawn.Stop()` as a thin wrapper around `machinectl poweroff`, consistent with how `nspawn.Boot()` and the start-side poll loop are separated.
 - **30-second timeout** — matches the start-side timeout.
-- **500ms poll interval** — responsive without being wasteful (up to 60 checks).
+- **500ms poll interval, 60 iterations** — responsive without being wasteful. Note: the start-side loop uses 1s intervals with 30 iterations; 500ms is more appropriate for shutdown which is typically faster than boot.
 - **Broker proxy stop is already handled** — `broker.StopByPIDFile()` already polls for process exit for up to 5 seconds.
 
 ## Updated stop command flow
