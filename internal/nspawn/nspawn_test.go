@@ -104,21 +104,6 @@ func TestBuildShellArgs(t *testing.T) {
 	}
 }
 
-func TestDetectVideoDevices_ReturnsBindMounts(t *testing.T) {
-	// DetectVideoDevices depends on real /dev nodes, so we test the
-	// return type and that it doesn't error on this machine.
-	// It may return empty if no cameras are present.
-	devices := DetectVideoDevices()
-	for _, d := range devices {
-		if d.Mount.Host != d.Mount.Container {
-			t.Errorf("video device mount should map to same path: host=%s container=%s", d.Mount.Host, d.Mount.Container)
-		}
-		if d.Mount.Host == "" {
-			t.Error("empty host path in video device mount")
-		}
-	}
-}
-
 func TestHostDisplay_UsesEnv(t *testing.T) {
 	// Test: unset DISPLAY falls back to :0
 	t.Setenv("DISPLAY", "")

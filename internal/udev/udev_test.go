@@ -96,6 +96,13 @@ func TestScriptContent(t *testing.T) {
 	if !strings.Contains(content, StateDir) {
 		t.Errorf("script content missing state dir %s", StateDir)
 	}
+	// Video/media devices should get restrictive permissions.
+	if !strings.Contains(content, "chgrp video") {
+		t.Error("script content missing chgrp video for video devices")
+	}
+	if !strings.Contains(content, "chmod 0660") {
+		t.Error("script content missing chmod 0660 for video devices")
+	}
 }
 
 func TestScriptContentDifferentMachines(t *testing.T) {
@@ -125,15 +132,15 @@ func TestInstall(t *testing.T) {
 		t.Error("missing mkdir for script dir")
 	}
 
-	// Verify sudo install calls for script and rule.
+	// Verify sudo install calls for script and rules.
 	installCount := 0
 	for _, cmd := range r.commands {
 		if strings.HasPrefix(cmd, "sudo install") {
 			installCount++
 		}
 	}
-	if installCount != 2 {
-		t.Errorf("expected 2 sudo install calls (script + rule), got %d", installCount)
+	if installCount != 3 {
+		t.Errorf("expected 3 sudo install calls (script + yubikey rule + video rule), got %d", installCount)
 	}
 
 	// Verify udevadm reload.
@@ -176,6 +183,34 @@ func TestRulesPath(t *testing.T) {
 	want := "/etc/udev/rules.d/70-intuneme-yubikey.rules"
 	if got != want {
 		t.Errorf("RulesPath() = %q, want %q", got, want)
+	}
+}
+
+func TestVideoRulesPath(t *testing.T) {
+	got := VideoRulesPath()
+	want := "/etc/udev/rules.d/70-intuneme-video.rules"
+	if got != want {
+		t.Errorf("VideoRulesPath() = %q, want %q", got, want)
+	}
+}
+
+func TestVideoRulesContent(t *testing.T) {
+	content := VideoRulesContent()
+
+	checks := []string{
+		ScriptDir + "/" + ScriptName,
+		`SUBSYSTEM=="video4linux"`,
+		`SUBSYSTEM=="media"`,
+		`KERNEL=="video*"`,
+		`KERNEL=="media*"`,
+		`ACTION=="add"`,
+		`ACTION=="remove"`,
+		"/dev/%k",
+	}
+	for _, want := range checks {
+		if !strings.Contains(content, want) {
+			t.Errorf("video rules content missing %q", want)
+		}
 	}
 }
 
@@ -231,6 +266,67 @@ func TestForwardDeviceContainerNotRunning(t *testing.T) {
 	err := ForwardDevice(r, "intuneme", "/dev/bus/usb/003/009")
 	if err == nil {
 		t.Fatal("expected error when container not running")
+	}
+}
+
+func TestForwardDeviceVideoPermissions(t *testing.T) {
+	r := newMockRunner()
+	r.outputs["machinectl show"] = "12345"
+	r.outputs["stat -c"] = "0x51 0x0"
+
+	err := ForwardDevice(r, "intuneme", "/dev/video0")
+	if err != nil {
+		t.Fatalf("ForwardDevice failed: %v", err)
+	}
+
+	// Video devices should use chgrp video + chmod 0660.
+	if !r.hasCommand("sudo nsenter -t 12345 -m -- chgrp video /dev/video0") {
+		t.Error("missing chgrp video for video device")
+	}
+	if !r.hasCommand("sudo nsenter -t 12345 -m -- chmod 0660 /dev/video0") {
+		t.Error("missing chmod 0660 for video device")
+	}
+	// Should NOT use 0666 for video devices.
+	if r.hasCommand("sudo nsenter -t 12345 -m -- chmod 0666 /dev/video0") {
+		t.Error("video device should not use 0666")
+	}
+}
+
+func TestForwardDeviceMediaPermissions(t *testing.T) {
+	r := newMockRunner()
+	r.outputs["machinectl show"] = "12345"
+	r.outputs["stat -c"] = "0x51 0x1"
+
+	err := ForwardDevice(r, "intuneme", "/dev/media0")
+	if err != nil {
+		t.Fatalf("ForwardDevice failed: %v", err)
+	}
+
+	// Media devices should also use chgrp video + chmod 0660.
+	if !r.hasCommand("sudo nsenter -t 12345 -m -- chgrp video /dev/media0") {
+		t.Error("missing chgrp video for media device")
+	}
+	if !r.hasCommand("sudo nsenter -t 12345 -m -- chmod 0660 /dev/media0") {
+		t.Error("missing chmod 0660 for media device")
+	}
+}
+
+func TestIsVideoDevice(t *testing.T) {
+	tests := []struct {
+		devnode string
+		want    bool
+	}{
+		{"/dev/video0", true},
+		{"/dev/video1", true},
+		{"/dev/media0", true},
+		{"/dev/media1", true},
+		{"/dev/bus/usb/003/009", false},
+		{"/dev/hidraw3", false},
+	}
+	for _, tt := range tests {
+		if got := isVideoDevice(tt.devnode); got != tt.want {
+			t.Errorf("isVideoDevice(%q) = %v, want %v", tt.devnode, got, tt.want)
+		}
 	}
 }
 

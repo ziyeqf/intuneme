@@ -40,13 +40,13 @@ func runStop(r runner.Runner, root string, pollInterval time.Duration, maxAttemp
 		rep.Message("Broker proxy stopped.")
 	}
 
-	// Remove udev rules for YubiKey forwarding.
-	if udev.IsInstalled() {
-		if err := udev.Remove(r); err != nil {
-			rep.Message("Warning: failed to remove udev rules: %v", err)
-		} else if clix.Verbose {
-			rep.Message("Removed YubiKey udev rules.")
-		}
+	// Remove udev rules and hotplug artifacts. Remove() is graceful and
+	// handles missing files, so call it unconditionally to clean up any
+	// partial install state (e.g. script without rules).
+	if err := udev.Remove(r); err != nil {
+		rep.Message("Warning: failed to remove udev rules: %v", err)
+	} else if clix.Verbose {
+		rep.Message("Removed udev hotplug rules.")
 	}
 
 	rep.Message("Stopping container...")

@@ -11,17 +11,21 @@ import (
 )
 
 const (
-	RulesFile  = "70-intuneme-yubikey.rules"
-	RulesDir   = "/etc/udev/rules.d"
-	ScriptDir  = "/usr/local/lib/intuneme"
-	ScriptName = "usb-hotplug"
-	StateDir   = "/run/intuneme/devices"
+	RulesFile      = "70-intuneme-yubikey.rules"
+	VideoRulesFile = "70-intuneme-video.rules"
+	RulesDir       = "/etc/udev/rules.d"
+	ScriptDir      = "/usr/local/lib/intuneme"
+	ScriptName     = "usb-hotplug"
+	StateDir       = "/run/intuneme/devices"
 
 	YubicoVendorID = "1050"
 )
 
 //go:embed 70-intuneme-yubikey.rules
 var rulesTemplate string
+
+//go:embed 70-intuneme-video.rules
+var videoRulesTemplate string
 
 //go:embed usb-hotplug.sh.tmpl
 var scriptTemplate string
@@ -52,6 +56,11 @@ func (y YubikeyDevice) Devices() []string {
 // RulesPath returns the full path to the udev rules file.
 func RulesPath() string {
 	return filepath.Join(RulesDir, RulesFile)
+}
+
+// VideoRulesPath returns the full path to the video udev rules file.
+func VideoRulesPath() string {
+	return filepath.Join(RulesDir, VideoRulesFile)
 }
 
 // ScriptPath returns the full path to the helper script.
@@ -87,9 +96,12 @@ func Install(r runner.Runner, machineName string) error {
 		return fmt.Errorf("install helper script: %w", err)
 	}
 
-	// Write udev rule.
+	// Write udev rules.
 	if err := sudoWriteFile(r, RulesPath(), []byte(rulesTemplate), 0644); err != nil {
-		return fmt.Errorf("install udev rule: %w", err)
+		return fmt.Errorf("install yubikey udev rule: %w", err)
+	}
+	if err := sudoWriteFile(r, VideoRulesPath(), []byte(videoRulesTemplate), 0644); err != nil {
+		return fmt.Errorf("install video udev rule: %w", err)
 	}
 
 	// Reload udev rules.
@@ -103,11 +115,15 @@ func Install(r runner.Runner, machineName string) error {
 // Remove deletes the udev rule file, helper script, and state directory.
 // It is intentionally graceful: missing files and failed reloads are not errors.
 func Remove(r runner.Runner) error {
-	rulesExisted := fileExists(RulesPath())
+	yubikeyRulesExisted := fileExists(RulesPath())
+	videoRulesExisted := fileExists(VideoRulesPath())
 	scriptExisted := fileExists(ScriptPath())
 
-	if rulesExisted {
+	if yubikeyRulesExisted {
 		_, _ = r.Run("sudo", "rm", "-f", RulesPath())
+	}
+	if videoRulesExisted {
+		_, _ = r.Run("sudo", "rm", "-f", VideoRulesPath())
 	}
 	if scriptExisted {
 		_, _ = r.Run("sudo", "rm", "-f", ScriptPath())
@@ -119,17 +135,17 @@ func Remove(r runner.Runner) error {
 	// Clean up state directory.
 	_, _ = r.Run("sudo", "rm", "-rf", StateDir)
 
-	// Reload udev rules if we removed the rule file.
-	if rulesExisted {
+	// Reload udev rules if we removed any rule file.
+	if yubikeyRulesExisted || videoRulesExisted {
 		_, _ = r.Run("sudo", "udevadm", "control", "--reload-rules")
 	}
 
 	return nil
 }
 
-// IsInstalled reports whether the udev rules file is installed.
+// IsInstalled reports whether any udev rules files are installed.
 func IsInstalled() bool {
-	return fileExists(RulesPath())
+	return fileExists(RulesPath()) || fileExists(VideoRulesPath())
 }
 
 func fileExists(path string) bool {
@@ -248,9 +264,22 @@ func ForwardDevice(r runner.Runner, machine, devnode string) error {
 		"mknod", devnode, "c", major, minor); err != nil {
 		return fmt.Errorf("mknod %s: %w", devnode, err)
 	}
-	if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
-		"chmod", "0666", devnode); err != nil {
-		return fmt.Errorf("chmod %s: %w", devnode, err)
+	// Use restrictive permissions for video/media devices (0660 root:video)
+	// matching the typical host access model. Other devices use 0666.
+	if isVideoDevice(devnode) {
+		if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
+			"chgrp", "video", devnode); err != nil {
+			return fmt.Errorf("chgrp %s: %w", devnode, err)
+		}
+		if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
+			"chmod", "0660", devnode); err != nil {
+			return fmt.Errorf("chmod %s: %w", devnode, err)
+		}
+	} else {
+		if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
+			"chmod", "0666", devnode); err != nil {
+			return fmt.Errorf("chmod %s: %w", devnode, err)
+		}
 	}
 
 	// Record in state directory.
@@ -274,9 +303,53 @@ func leaderPID(r runner.Runner, machine string) (string, error) {
 	return pid, nil
 }
 
-// RulesContent returns the udev rules content (for testing).
+// isVideoDevice reports whether the device path is a video or media controller device.
+func isVideoDevice(devnode string) bool {
+	base := filepath.Base(devnode)
+	return strings.HasPrefix(base, "video") || strings.HasPrefix(base, "media")
+}
+
+// VideoDevice represents a detected video capture or media controller device.
+type VideoDevice struct {
+	DevNode string // e.g., /dev/video0, /dev/media0
+	Name    string // human-readable name from sysfs
+}
+
+// DetectVideoDevices scans for V4L2 video and media controller devices.
+func DetectVideoDevices() []VideoDevice {
+	var devices []VideoDevice
+
+	videoMatches, _ := filepath.Glob("/dev/video*")
+	for _, dev := range videoMatches {
+		name := readVideoSysfsName(dev)
+		devices = append(devices, VideoDevice{DevNode: dev, Name: name})
+	}
+
+	mediaMatches, _ := filepath.Glob("/dev/media*")
+	for _, dev := range mediaMatches {
+		devices = append(devices, VideoDevice{DevNode: dev})
+	}
+
+	return devices
+}
+
+func readVideoSysfsName(devPath string) string {
+	base := filepath.Base(devPath)
+	data, err := os.ReadFile(filepath.Join("/sys/class/video4linux", base, "name"))
+	if err != nil {
+		return base
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// RulesContent returns the YubiKey udev rules content (for testing).
 func RulesContent() string {
 	return rulesTemplate
+}
+
+// VideoRulesContent returns the video udev rules content (for testing).
+func VideoRulesContent() string {
+	return videoRulesTemplate
 }
 
 // ScriptContent returns the helper script content for the given machine name (for testing).

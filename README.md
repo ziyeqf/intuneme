@@ -18,8 +18,8 @@ Host                              Container (systemd-nspawn)
 /run/user/$UID/pipewire-0 bind─→ /run/host-pipewire
 Xauthority file ────────bind──→  /run/host-xauthority
 /dev/dri ───────────────bind──→  /dev/dri
-/dev/video* ────────────bind──→  /dev/video*  (if present)
-/dev/media* ────────────bind──→  /dev/media*  (if present)
+/dev/video* ─────────nsenter──→  /dev/video*  (hotplug)
+/dev/media* ─────────nsenter──→  /dev/media*  (hotplug)
 /dev/bus/usb/* ──────nsenter──→  /dev/bus/usb/*  (YubiKey hotplug)
 /dev/hidraw* ────────nsenter──→  /dev/hidraw*    (YubiKey hotplug)
 
@@ -51,13 +51,23 @@ intuneme stop && intuneme start
 
 When enabled, `intuneme start` also creates a login session inside the container (for gnome-keyring and the broker's user services) and `intuneme status` shows the proxy state.
 
-## YubiKey passthrough
+## Device hotplug
 
-YubiKey USB security keys are automatically forwarded into the container. When you run `intuneme start`, udev rules are installed on the host that detect Yubico devices (vendor ID `1050`) and forward them into the running container via `nsenter`. This works regardless of which physical USB port the key is plugged into.
+YubiKey USB security keys and video capture devices (webcams) are automatically forwarded into the container via udev hotplug rules. When you run `intuneme start`, udev rules are installed on the host that detect these devices and forward them into the running container via `nsenter`.
 
-- **Hot-plug**: Plugging in a YubiKey while the container is running automatically forwards it.
-- **Hot-unplug**: Removing the key cleans up the device node inside the container.
-- **Already-plugged keys**: Keys plugged in before `intuneme start` are detected and forwarded at boot.
+### YubiKey passthrough
+
+Yubico devices (vendor ID `1050`) are detected by USB vendor ID. This works regardless of which physical USB port the key is plugged into.
+
+### Webcam passthrough
+
+V4L2 video devices (`/dev/video*`) and media controllers (`/dev/media*`) are forwarded automatically. This means you can dock/undock your laptop without restarting the container — the camera will appear inside the container when connected and be cleaned up when disconnected.
+
+### Common behavior
+
+- **Hot-plug**: Plugging in a device while the container is running automatically forwards it.
+- **Hot-unplug**: Removing the device cleans up the device node inside the container.
+- **Already-plugged devices**: Devices present before `intuneme start` are detected and forwarded at boot.
 - **Automatic lifecycle**: Rules are installed on `intuneme start` and removed on `intuneme stop`.
 
 For manual control (e.g., cleaning up stray rules after a crash):
@@ -72,7 +82,7 @@ intuneme udev remove
 
 Both commands are idempotent and graceful — `udev remove` succeeds even if no rules are installed.
 
-To check forwarding logs: `journalctl -t intuneme-usb`.
+To check forwarding logs: `journalctl -t intuneme-hotplug`.
 
 ## Prerequisites
 
@@ -161,7 +171,7 @@ bash scripts/install-desktop-items.sh --uninstall
 | `intuneme open portal` | Launch Intune Portal inside the container |
 | `intuneme stop` | Shut down the container |
 | `intuneme status` | Show whether the container is initialized and running |
-| `intuneme udev install` | Install udev rules for YubiKey forwarding (normally automatic) |
+| `intuneme udev install` | Install udev rules for device hotplug forwarding (normally automatic) |
 | `intuneme udev remove` | Remove udev rules (graceful, safe to run anytime) |
 | `intuneme recreate` | Upgrade the container image, preserving enrollment state |
 | `intuneme destroy` | Stop the container, remove the rootfs, clean enrollment state |
@@ -259,10 +269,10 @@ Try launching with a fresh profile first: `microsoft-edge --user-data-dir=/tmp/e
 Check that PipeWire is forwarded. The host needs a PipeWire socket at `/run/user/$UID/pipewire-0`. Inside the container, verify `$PIPEWIRE_REMOTE` is set.
 
 **Webcam not available in Teams/Edge**
-Video devices are detected at `intuneme start` and are not hot-plugged. If you connect a USB webcam after the container is already running, restart it with `intuneme stop && intuneme start` to pick up the new device.
+Check that udev rules are installed: `ls /etc/udev/rules.d/70-intuneme-video.rules`. If missing, run `intuneme udev install`. Verify the camera is detected on the host with `ls /dev/video*`. Check forwarding logs with `journalctl -t intuneme-hotplug`.
 
 **YubiKey not detected inside the container**
-Check that udev rules are installed: `ls /etc/udev/rules.d/70-intuneme-yubikey.rules`. If missing, run `intuneme udev install`. Check forwarding logs with `journalctl -t intuneme-usb`. Verify the key is detected on the host with `lsusb | grep Yubico`.
+Check that udev rules are installed: `ls /etc/udev/rules.d/70-intuneme-yubikey.rules`. If missing, run `intuneme udev install`. Check forwarding logs with `journalctl -t intuneme-hotplug`. Verify the key is detected on the host with `lsusb | grep Yubico`.
 
 ## How it differs from mkosi-intune
 

@@ -44,18 +44,6 @@ var startCmd = &cobra.Command{
 		containerHome := fmt.Sprintf("/home/%s", cfg.HostUser)
 		sockets := nspawn.DetectHostSockets(cfg.HostUID)
 
-		videoDev := nspawn.DetectVideoDevices()
-		if len(videoDev) > 0 {
-			for _, d := range videoDev {
-				if d.Name != "" && clix.Verbose {
-					rep.Message("Detected webcam: %s (%s)", d.Mount.Host, d.Name)
-				}
-				sockets = append(sockets, d.Mount)
-			}
-		} else if clix.Verbose {
-			rep.Message("No webcams detected")
-		}
-
 		// When broker proxy is enabled, bind-mount a host directory to
 		// /run/user/<uid> inside the container so the session bus socket
 		// is accessible from the host.
@@ -103,28 +91,57 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("container failed to start within 30 seconds")
 		}
 
-		// Install udev rules for YubiKey hotplug and forward already-plugged keys.
+		// Install udev rules for device hotplug (enables future hotplug events).
 		if err := udev.Install(r, cfg.MachineName); err != nil {
-			rep.Message("Warning: failed to install udev rules: %v", err)
-		} else {
-			if clix.Verbose {
-				rep.Message("Installed YubiKey udev rules.")
+			rep.Message("Warning: failed to install udev rules (hotplug won't work): %v", err)
+		} else if clix.Verbose {
+			rep.Message("Installed udev hotplug rules.")
+		}
+
+		// Forward already-plugged YubiKeys.
+		yubikeys := udev.DetectYubikeys()
+		for _, yk := range yubikeys {
+			name := yk.Name
+			if name == "" {
+				name = "Yubico device"
 			}
-			yubikeys := udev.DetectYubikeys()
-			for _, yk := range yubikeys {
-				name := yk.Name
-				if name == "" {
-					name = "Yubico device"
-				}
-				for _, devnode := range yk.Devices() {
-					if err := udev.ForwardDevice(r, cfg.MachineName, devnode); err != nil {
-						rep.Message("Warning: failed to forward %s: %v", devnode, err)
-					} else if clix.Verbose {
+			forwarded := false
+			for _, devnode := range yk.Devices() {
+				if err := udev.ForwardDevice(r, cfg.MachineName, devnode); err != nil {
+					rep.Message("Warning: failed to forward %s: %v", devnode, err)
+				} else {
+					forwarded = true
+					if clix.Verbose {
 						rep.Message("Forwarded %s (%s)", devnode, name)
 					}
 				}
+			}
+			if forwarded {
 				rep.Message("Forwarded YubiKey: %s", name)
 			}
+		}
+
+		// Forward already-connected video devices.
+		videoDevs := udev.DetectVideoDevices()
+		videoForwarded := 0
+		for _, vd := range videoDevs {
+			if err := udev.ForwardDevice(r, cfg.MachineName, vd.DevNode); err != nil {
+				rep.Message("Warning: failed to forward %s: %v", vd.DevNode, err)
+			} else {
+				videoForwarded++
+				if clix.Verbose {
+					name := vd.Name
+					if name == "" {
+						name = vd.DevNode
+					}
+					rep.Message("Forwarded video device: %s (%s)", vd.DevNode, name)
+				}
+			}
+		}
+		if videoForwarded > 0 {
+			rep.Message("Forwarded %d video device(s).", videoForwarded)
+		} else if clix.Verbose {
+			rep.Message("No video devices detected.")
 		}
 
 		if cfg.BrokerProxy {
