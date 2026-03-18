@@ -26,8 +26,23 @@ env:
 permissions: {}
 
 jobs:
+  matrix:
+    name: Compute build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.set.outputs.include }}
+    steps:
+      - id: set
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo 'include=[{"channel":"","tag":"latest"}]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'include=[{"channel":"","tag":"latest"},{"channel":"insiders","tag":"insiders"}]' >> "$GITHUB_OUTPUT"
+          fi
+
   build_push:
-    name: Build and push image
+    name: Build and push image (${{ matrix.tag }})
+    needs: matrix
     runs-on: ubuntu-24.04
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ matrix.tag }}
@@ -35,9 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - tag: latest
-          - tag: insiders
+        include: ${{ fromJson(needs.matrix.outputs.include) }}
 
     permissions:
       attestations: write
@@ -127,7 +140,7 @@ jobs:
           extra-args: --skip-unused-stages=false
           build-args: |
             SOURCE_DATE_EPOCH=${{ steps.epoch.outputs.epoch }}
-            CHANNEL=${{ matrix.tag }}
+            CHANNEL=${{ matrix.channel }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
