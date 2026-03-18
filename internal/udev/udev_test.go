@@ -96,6 +96,13 @@ func TestScriptContent(t *testing.T) {
 	if !strings.Contains(content, StateDir) {
 		t.Errorf("script content missing state dir %s", StateDir)
 	}
+	// Video/media devices should get restrictive permissions.
+	if !strings.Contains(content, "chgrp video") {
+		t.Error("script content missing chgrp video for video devices")
+	}
+	if !strings.Contains(content, "chmod 0660") {
+		t.Error("script content missing chmod 0660 for video devices")
+	}
 }
 
 func TestScriptContentDifferentMachines(t *testing.T) {
@@ -194,6 +201,8 @@ func TestVideoRulesContent(t *testing.T) {
 		ScriptDir + "/" + ScriptName,
 		`SUBSYSTEM=="video4linux"`,
 		`SUBSYSTEM=="media"`,
+		`KERNEL=="video*"`,
+		`KERNEL=="media*"`,
 		`ACTION=="add"`,
 		`ACTION=="remove"`,
 		"/dev/%k",
@@ -257,6 +266,67 @@ func TestForwardDeviceContainerNotRunning(t *testing.T) {
 	err := ForwardDevice(r, "intuneme", "/dev/bus/usb/003/009")
 	if err == nil {
 		t.Fatal("expected error when container not running")
+	}
+}
+
+func TestForwardDeviceVideoPermissions(t *testing.T) {
+	r := newMockRunner()
+	r.outputs["machinectl show"] = "12345"
+	r.outputs["stat -c"] = "0x51 0x0"
+
+	err := ForwardDevice(r, "intuneme", "/dev/video0")
+	if err != nil {
+		t.Fatalf("ForwardDevice failed: %v", err)
+	}
+
+	// Video devices should use chgrp video + chmod 0660.
+	if !r.hasCommand("sudo nsenter -t 12345 -m -- chgrp video /dev/video0") {
+		t.Error("missing chgrp video for video device")
+	}
+	if !r.hasCommand("sudo nsenter -t 12345 -m -- chmod 0660 /dev/video0") {
+		t.Error("missing chmod 0660 for video device")
+	}
+	// Should NOT use 0666 for video devices.
+	if r.hasCommand("sudo nsenter -t 12345 -m -- chmod 0666 /dev/video0") {
+		t.Error("video device should not use 0666")
+	}
+}
+
+func TestForwardDeviceMediaPermissions(t *testing.T) {
+	r := newMockRunner()
+	r.outputs["machinectl show"] = "12345"
+	r.outputs["stat -c"] = "0x51 0x1"
+
+	err := ForwardDevice(r, "intuneme", "/dev/media0")
+	if err != nil {
+		t.Fatalf("ForwardDevice failed: %v", err)
+	}
+
+	// Media devices should also use chgrp video + chmod 0660.
+	if !r.hasCommand("sudo nsenter -t 12345 -m -- chgrp video /dev/media0") {
+		t.Error("missing chgrp video for media device")
+	}
+	if !r.hasCommand("sudo nsenter -t 12345 -m -- chmod 0660 /dev/media0") {
+		t.Error("missing chmod 0660 for media device")
+	}
+}
+
+func TestIsVideoDevice(t *testing.T) {
+	tests := []struct {
+		devnode string
+		want    bool
+	}{
+		{"/dev/video0", true},
+		{"/dev/video1", true},
+		{"/dev/media0", true},
+		{"/dev/media1", true},
+		{"/dev/bus/usb/003/009", false},
+		{"/dev/hidraw3", false},
+	}
+	for _, tt := range tests {
+		if got := isVideoDevice(tt.devnode); got != tt.want {
+			t.Errorf("isVideoDevice(%q) = %v, want %v", tt.devnode, got, tt.want)
+		}
 	}
 }
 

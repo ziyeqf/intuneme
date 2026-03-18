@@ -37,7 +37,16 @@ case "$ACTION" in
     nsenter -t "$LEADER" -m -- mknod "$DEVNODE" c "$MAJOR" "$MINOR" 2>/dev/null || {
       log "add: mknod failed for $DEVNODE"; exit 0
     }
-    nsenter -t "$LEADER" -m -- chmod 0666 "$DEVNODE"
+    # Use restrictive permissions for video/media devices (matching host model).
+    case "$(basename "$DEVNODE")" in
+      video*|media*)
+        nsenter -t "$LEADER" -m -- chgrp video "$DEVNODE"
+        nsenter -t "$LEADER" -m -- chmod 0660 "$DEVNODE"
+        ;;
+      *)
+        nsenter -t "$LEADER" -m -- chmod 0666 "$DEVNODE"
+        ;;
+    esac
 
     # Record forwarded device.
     mkdir -p "$STATE_DIR"

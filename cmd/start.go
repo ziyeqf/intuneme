@@ -105,31 +105,41 @@ var startCmd = &cobra.Command{
 			if name == "" {
 				name = "Yubico device"
 			}
+			forwarded := false
 			for _, devnode := range yk.Devices() {
 				if err := udev.ForwardDevice(r, cfg.MachineName, devnode); err != nil {
 					rep.Message("Warning: failed to forward %s: %v", devnode, err)
-				} else if clix.Verbose {
-					rep.Message("Forwarded %s (%s)", devnode, name)
+				} else {
+					forwarded = true
+					if clix.Verbose {
+						rep.Message("Forwarded %s (%s)", devnode, name)
+					}
 				}
 			}
-			rep.Message("Forwarded YubiKey: %s", name)
+			if forwarded {
+				rep.Message("Forwarded YubiKey: %s", name)
+			}
 		}
 
 		// Forward already-connected video devices.
 		videoDevs := udev.DetectVideoDevices()
+		videoForwarded := 0
 		for _, vd := range videoDevs {
 			if err := udev.ForwardDevice(r, cfg.MachineName, vd.DevNode); err != nil {
 				rep.Message("Warning: failed to forward %s: %v", vd.DevNode, err)
-			} else if clix.Verbose {
-				name := vd.Name
-				if name == "" {
-					name = vd.DevNode
+			} else {
+				videoForwarded++
+				if clix.Verbose {
+					name := vd.Name
+					if name == "" {
+						name = vd.DevNode
+					}
+					rep.Message("Forwarded video device: %s (%s)", vd.DevNode, name)
 				}
-				rep.Message("Forwarded video device: %s (%s)", vd.DevNode, name)
 			}
 		}
-		if len(videoDevs) > 0 {
-			rep.Message("Forwarded %d video device(s).", len(videoDevs))
+		if videoForwarded > 0 {
+			rep.Message("Forwarded %d video device(s).", videoForwarded)
 		} else if clix.Verbose {
 			rep.Message("No video devices detected.")
 		}

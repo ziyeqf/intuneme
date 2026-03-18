@@ -264,9 +264,22 @@ func ForwardDevice(r runner.Runner, machine, devnode string) error {
 		"mknod", devnode, "c", major, minor); err != nil {
 		return fmt.Errorf("mknod %s: %w", devnode, err)
 	}
-	if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
-		"chmod", "0666", devnode); err != nil {
-		return fmt.Errorf("chmod %s: %w", devnode, err)
+	// Use restrictive permissions for video/media devices (0660 root:video)
+	// matching the typical host access model. Other devices use 0666.
+	if isVideoDevice(devnode) {
+		if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
+			"chgrp", "video", devnode); err != nil {
+			return fmt.Errorf("chgrp %s: %w", devnode, err)
+		}
+		if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
+			"chmod", "0660", devnode); err != nil {
+			return fmt.Errorf("chmod %s: %w", devnode, err)
+		}
+	} else {
+		if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
+			"chmod", "0666", devnode); err != nil {
+			return fmt.Errorf("chmod %s: %w", devnode, err)
+		}
 	}
 
 	// Record in state directory.
@@ -288,6 +301,12 @@ func leaderPID(r runner.Runner, machine string) (string, error) {
 		return "", fmt.Errorf("container %s is not running", machine)
 	}
 	return pid, nil
+}
+
+// isVideoDevice reports whether the device path is a video or media controller device.
+func isVideoDevice(devnode string) bool {
+	base := filepath.Base(devnode)
+	return strings.HasPrefix(base, "video") || strings.HasPrefix(base, "media")
 }
 
 // VideoDevice represents a detected video capture or media controller device.

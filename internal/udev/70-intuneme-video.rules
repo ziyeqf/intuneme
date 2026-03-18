@@ -3,9 +3,9 @@
 # Managed by intuneme — do not edit manually.
 
 # V4L2 video capture devices (/dev/video*)
-ACTION=="add", SUBSYSTEM=="video4linux", RUN+="/usr/local/lib/intuneme/usb-hotplug add /dev/%k"
-ACTION=="remove", SUBSYSTEM=="video4linux", RUN+="/usr/local/lib/intuneme/usb-hotplug remove /dev/%k"
+ACTION=="add", SUBSYSTEM=="video4linux", KERNEL=="video*", RUN+="/usr/local/lib/intuneme/usb-hotplug add /dev/%k"
+ACTION=="remove", SUBSYSTEM=="video4linux", KERNEL=="video*", RUN+="/usr/local/lib/intuneme/usb-hotplug remove /dev/%k"
 
 # Media controller devices (/dev/media*)
-ACTION=="add", SUBSYSTEM=="media", RUN+="/usr/local/lib/intuneme/usb-hotplug add /dev/%k"
-ACTION=="remove", SUBSYSTEM=="media", RUN+="/usr/local/lib/intuneme/usb-hotplug remove /dev/%k"
+ACTION=="add", SUBSYSTEM=="media", KERNEL=="media*", RUN+="/usr/local/lib/intuneme/usb-hotplug add /dev/%k"
+ACTION=="remove", SUBSYSTEM=="media", KERNEL=="media*", RUN+="/usr/local/lib/intuneme/usb-hotplug remove /dev/%k"
