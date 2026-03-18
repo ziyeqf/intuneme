@@ -1,5 +1,5 @@
 #!/bin/bash
-# intuneme USB hotplug handler — forwards Yubico devices to nspawn container.
+# intuneme hotplug handler — forwards devices to nspawn container.
 # Managed by intuneme — do not edit manually.
 set -euo pipefail
 
@@ -7,7 +7,7 @@ ACTION="${1:-}"
 DEVNODE="${2:-}"
 MACHINE="{{.Machine}}"
 STATE_DIR="/run/intuneme/devices"
-LOG_TAG="intuneme-usb"
+LOG_TAG="intuneme-hotplug"
 
 log() { logger -t "$LOG_TAG" "$@" 2>/dev/null || true; }
 

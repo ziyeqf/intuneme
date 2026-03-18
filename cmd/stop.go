@@ -45,7 +45,7 @@ func runStop(r runner.Runner, root string, pollInterval time.Duration, maxAttemp
 		if err := udev.Remove(r); err != nil {
 			rep.Message("Warning: failed to remove udev rules: %v", err)
 		} else if clix.Verbose {
-			rep.Message("Removed YubiKey udev rules.")
+			rep.Message("Removed udev hotplug rules.")
 		}
 	}
 

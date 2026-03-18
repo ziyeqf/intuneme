@@ -44,18 +44,6 @@ var startCmd = &cobra.Command{
 		containerHome := fmt.Sprintf("/home/%s", cfg.HostUser)
 		sockets := nspawn.DetectHostSockets(cfg.HostUID)
 
-		videoDev := nspawn.DetectVideoDevices()
-		if len(videoDev) > 0 {
-			for _, d := range videoDev {
-				if d.Name != "" && clix.Verbose {
-					rep.Message("Detected webcam: %s (%s)", d.Mount.Host, d.Name)
-				}
-				sockets = append(sockets, d.Mount)
-			}
-		} else if clix.Verbose {
-			rep.Message("No webcams detected")
-		}
-
 		// When broker proxy is enabled, bind-mount a host directory to
 		// /run/user/<uid> inside the container so the session bus socket
 		// is accessible from the host.
@@ -103,13 +91,15 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("container failed to start within 30 seconds")
 		}
 
-		// Install udev rules for YubiKey hotplug and forward already-plugged keys.
+		// Install udev rules for device hotplug and forward already-plugged devices.
 		if err := udev.Install(r, cfg.MachineName); err != nil {
 			rep.Message("Warning: failed to install udev rules: %v", err)
 		} else {
 			if clix.Verbose {
-				rep.Message("Installed YubiKey udev rules.")
+				rep.Message("Installed udev hotplug rules.")
 			}
+
+			// Forward already-plugged YubiKeys.
 			yubikeys := udev.DetectYubikeys()
 			for _, yk := range yubikeys {
 				name := yk.Name
@@ -124,6 +114,25 @@ var startCmd = &cobra.Command{
 					}
 				}
 				rep.Message("Forwarded YubiKey: %s", name)
+			}
+
+			// Forward already-connected video devices.
+			videoDevs := udev.DetectVideoDevices()
+			for _, vd := range videoDevs {
+				if err := udev.ForwardDevice(r, cfg.MachineName, vd.DevNode); err != nil {
+					rep.Message("Warning: failed to forward %s: %v", vd.DevNode, err)
+				} else if clix.Verbose {
+					name := vd.Name
+					if name == "" {
+						name = vd.DevNode
+					}
+					rep.Message("Forwarded video device: %s (%s)", vd.DevNode, name)
+				}
+			}
+			if len(videoDevs) > 0 {
+				rep.Message("Forwarded %d video device(s).", len(videoDevs))
+			} else if clix.Verbose {
+				rep.Message("No video devices detected.")
 			}
 		}
 

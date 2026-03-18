@@ -125,15 +125,15 @@ func TestInstall(t *testing.T) {
 		t.Error("missing mkdir for script dir")
 	}
 
-	// Verify sudo install calls for script and rule.
+	// Verify sudo install calls for script and rules.
 	installCount := 0
 	for _, cmd := range r.commands {
 		if strings.HasPrefix(cmd, "sudo install") {
 			installCount++
 		}
 	}
-	if installCount != 2 {
-		t.Errorf("expected 2 sudo install calls (script + rule), got %d", installCount)
+	if installCount != 3 {
+		t.Errorf("expected 3 sudo install calls (script + yubikey rule + video rule), got %d", installCount)
 	}
 
 	// Verify udevadm reload.
@@ -176,6 +176,32 @@ func TestRulesPath(t *testing.T) {
 	want := "/etc/udev/rules.d/70-intuneme-yubikey.rules"
 	if got != want {
 		t.Errorf("RulesPath() = %q, want %q", got, want)
+	}
+}
+
+func TestVideoRulesPath(t *testing.T) {
+	got := VideoRulesPath()
+	want := "/etc/udev/rules.d/70-intuneme-video.rules"
+	if got != want {
+		t.Errorf("VideoRulesPath() = %q, want %q", got, want)
+	}
+}
+
+func TestVideoRulesContent(t *testing.T) {
+	content := VideoRulesContent()
+
+	checks := []string{
+		ScriptDir + "/" + ScriptName,
+		`SUBSYSTEM=="video4linux"`,
+		`SUBSYSTEM=="media"`,
+		`ACTION=="add"`,
+		`ACTION=="remove"`,
+		"/dev/%k",
+	}
+	for _, want := range checks {
+		if !strings.Contains(content, want) {
+			t.Errorf("video rules content missing %q", want)
+		}
 	}
 }
 
