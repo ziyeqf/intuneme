@@ -40,7 +40,7 @@ func runStop(r runner.Runner, root string, pollInterval time.Duration, maxAttemp
 		rep.Message("Broker proxy stopped.")
 	}
 
-	// Remove udev rules for YubiKey forwarding.
+	// Remove udev rules for YubiKey and video device hotplug.
 	if udev.IsInstalled() {
 		if err := udev.Remove(r); err != nil {
 			rep.Message("Warning: failed to remove udev rules: %v", err)
