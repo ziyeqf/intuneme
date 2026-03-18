@@ -21,6 +21,7 @@ import (
 
 var forceInit bool
 var passwordFile string
+var insidersInit bool
 
 var initCmd = &cobra.Command{
 	Use:   "init",
@@ -73,7 +74,8 @@ var initCmd = &cobra.Command{
 			return fmt.Errorf("already initialized at %s — use --force to reinitialize", root)
 		}
 
-		image := pkgversion.ImageRef()
+		cfg.Insiders = insidersInit
+		image := pkgversion.ImageRef(cfg.Insiders)
 
 		p, err := puller.Detect(r)
 		if err != nil {
@@ -239,5 +241,6 @@ func readPassword(username, passwordFile string) (string, error) {
 func init() {
 	initCmd.Flags().BoolVar(&forceInit, "force", false, "reinitialize even if already set up")
 	initCmd.Flags().StringVar(&passwordFile, "password-file", "", "path to file containing the container user password (first line used)")
+	initCmd.Flags().BoolVar(&insidersInit, "insiders", false, "use the insiders channel container image")
 	rootCmd.AddCommand(initCmd)
 }
