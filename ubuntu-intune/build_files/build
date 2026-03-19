@@ -50,7 +50,6 @@ apt install -y \
   unattended-upgrades \
   microsoft-identity-broker \
   microsoft-edge-stable \
-  mdatp \
   pipewire-audio-client-libraries \
   mesa-vulkan-drivers \
   mesa-va-drivers \
