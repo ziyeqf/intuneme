@@ -50,6 +50,7 @@ apt install -y \
   unattended-upgrades \
   microsoft-identity-broker \
   microsoft-edge-stable \
+  mdatp \
   pipewire-audio-client-libraries \
   mesa-vulkan-drivers \
   mesa-va-drivers \
@@ -63,7 +64,8 @@ apt install -y \
   libsecret-tools \
   libpulse0 \
   sudo \
-  cracklib-runtime
+  cracklib-runtime \
+  upower
 
 # Microsoft Edge install adds a redundant .list file; remove it
 if [[ -f /etc/apt/sources.list.d/microsoft-edge.list ]]; then
