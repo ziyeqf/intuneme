@@ -63,7 +63,8 @@ apt install -y \
   libsecret-tools \
   libpulse0 \
   sudo \
-  cracklib-runtime
+  cracklib-runtime \
+  upower
 
 # Microsoft Edge install adds a redundant .list file; remove it
 if [[ -f /etc/apt/sources.list.d/microsoft-edge.list ]]; then
