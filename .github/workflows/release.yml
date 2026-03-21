@@ -51,7 +51,7 @@ jobs:
             dist/checksums.txt
 
       - name: Publish to frostyard repo
-        uses: frostyard/repogen/.github/actions/publish-to-r2@f9e0706f1be976424a8728c19cbe9238c47edf6e # main
+        uses: frostyard/repogen/.github/actions/publish-to-r2@1fcb45da32aa302f191bcfdf9de541adf9625aa8 # main
         with:
           r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
           r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
