@@ -319,6 +319,7 @@ Add to `.gitignore`:
 ```
 /_site
 /site/reference/cli
+/.venv
 ```
 
 ---
