@@ -104,6 +104,13 @@ func TestLibDirMounts(t *testing.T) {
 	if mounts[1].Container != "/run/host-nvidia/1" {
 		t.Errorf("mounts[1].Container = %q, want /run/host-nvidia/1", mounts[1].Container)
 	}
+
+	// All lib dir mounts must be read-only.
+	for i, m := range mounts {
+		if !m.ReadOnly {
+			t.Errorf("mounts[%d].ReadOnly = false, want true", i)
+		}
+	}
 }
 
 func TestLibDirMounts_SingleDirectory(t *testing.T) {
@@ -128,10 +135,13 @@ func TestICDMounts(t *testing.T) {
 	if got := len(mounts); got != 2 {
 		t.Fatalf("ICDMounts() returned %d mounts, want 2", got)
 	}
-	// ICD files bind to the same path.
-	for _, m := range mounts {
+	// ICD files bind to the same path and are read-only.
+	for i, m := range mounts {
 		if m.Host != m.Container {
 			t.Errorf("ICDMount host %q != container %q, expected same path", m.Host, m.Container)
+		}
+		if !m.ReadOnly {
+			t.Errorf("mounts[%d].ReadOnly = false, want true", i)
 		}
 	}
 }

@@ -41,7 +41,7 @@ func (m *mockRunner) LookPath(name string) (string, error) {
 
 func TestBuildBootArgs(t *testing.T) {
 	sockets := []BindMount{
-		{"/run/user/1000/wayland-0", "/run/host-wayland"},
+		{Host: "/run/user/1000/wayland-0", Container: "/run/host-wayland"},
 	}
 	args := BuildBootArgs("/tmp/rootfs", "intuneme", "/home/testuser/Intune", "/home/testuser", sockets, nil)
 
@@ -166,7 +166,7 @@ func TestWriteDisplayMarker_InvalidDisplay(t *testing.T) {
 
 func TestDetectHostSockets_PulseAudio(t *testing.T) {
 	sockets := []BindMount{
-		{"/run/user/1000/pulse/native", "/run/host-pulse"},
+		{Host: "/run/user/1000/pulse/native", Container: "/run/host-pulse"},
 	}
 	args := BuildBootArgs("/tmp/rootfs", "intuneme", "/home/testuser/Intune", "/home/testuser", sockets, nil)
 
@@ -178,8 +178,8 @@ func TestDetectHostSockets_PulseAudio(t *testing.T) {
 
 func TestBuildBootArgs_NvidiaDevices(t *testing.T) {
 	nvidiaDevs := []BindMount{
-		{"/dev/nvidia0", "/dev/nvidia0"},
-		{"/dev/nvidiactl", "/dev/nvidiactl"},
+		{Host: "/dev/nvidia0", Container: "/dev/nvidia0"},
+		{Host: "/dev/nvidiactl", Container: "/dev/nvidiactl"},
 	}
 	args := BuildBootArgs("/tmp/rootfs", "intuneme", "/home/testuser/Intune", "/home/testuser", nil, nvidiaDevs)
 
@@ -197,6 +197,26 @@ func TestBuildBootArgs_NvidiaDevices(t *testing.T) {
 	}
 	if !strings.Contains(joined, "--property=DeviceAllow=/dev/nvidiactl rwm") {
 		t.Errorf("missing DeviceAllow for nvidiactl in: %s", joined)
+	}
+}
+
+func TestBuildBootArgs_ReadOnlyBinds(t *testing.T) {
+	sockets := []BindMount{
+		{Host: "/usr/lib/x86_64-linux-gnu", Container: "/run/host-nvidia/0", ReadOnly: true},
+		{Host: "/usr/share/vulkan/icd.d/nvidia_icd.json", Container: "/usr/share/vulkan/icd.d/nvidia_icd.json", ReadOnly: true},
+		{Host: "/run/user/1000/wayland-0", Container: "/run/host-wayland"},
+	}
+	args := BuildBootArgs("/tmp/rootfs", "intuneme", "/home/testuser/Intune", "/home/testuser", sockets, nil)
+
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "--bind-ro=/usr/lib/x86_64-linux-gnu:/run/host-nvidia/0") {
+		t.Errorf("missing read-only bind for nvidia lib dir in: %s", joined)
+	}
+	if !strings.Contains(joined, "--bind-ro=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_icd.json") {
+		t.Errorf("missing read-only bind for ICD file in: %s", joined)
+	}
+	if !strings.Contains(joined, "--bind=/run/user/1000/wayland-0:/run/host-wayland") {
+		t.Errorf("missing writable bind for wayland socket in: %s", joined)
 	}
 }
 

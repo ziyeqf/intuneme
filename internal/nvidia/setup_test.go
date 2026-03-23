@@ -127,6 +127,38 @@ func TestSetup(t *testing.T) {
 	}
 }
 
+func TestCleanStaleLinks_PropagatesErrors(t *testing.T) {
+	r := &errorRunner{failOn: "find"}
+	if err := CleanStaleLinks(r, "intuneme"); err == nil {
+		t.Error("expected error from find command, got nil")
+	}
+
+	r = &errorRunner{failOn: "rm"}
+	if err := CleanStaleLinks(r, "intuneme"); err == nil {
+		t.Error("expected error from rm command, got nil")
+	}
+}
+
+// errorRunner fails on commands containing the failOn substring.
+type errorRunner struct {
+	failOn string
+}
+
+func (e *errorRunner) Run(name string, args ...string) ([]byte, error) {
+	cmd := name + " " + strings.Join(args, " ")
+	if name == "machinectl" && len(args) >= 1 && args[0] == "show" {
+		return []byte("42\n"), nil
+	}
+	if strings.Contains(cmd, e.failOn) {
+		return nil, &mockError{}
+	}
+	return nil, nil
+}
+
+func (e *errorRunner) RunAttached(string, ...string) error   { return nil }
+func (e *errorRunner) RunBackground(string, ...string) error { return nil }
+func (e *errorRunner) LookPath(name string) (string, error)  { return "/usr/bin/" + name, nil }
+
 func TestSetup_SkipsExistingRegularFile(t *testing.T) {
 	r := newMockRunner()
 	libs := []LibMapping{

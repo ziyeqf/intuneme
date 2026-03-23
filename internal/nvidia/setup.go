@@ -22,13 +22,17 @@ func CleanStaleLinks(r runner.Runner, machine string) error {
 	}
 
 	// Remove symlinks targeting /run/host-nvidia/*.
-	_, _ = r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
+	if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
 		"find", containerLibDir, "-maxdepth", "1",
-		"-lname", "/run/host-nvidia/*", "-delete")
+		"-lname", "/run/host-nvidia/*", "-delete"); err != nil {
+		return fmt.Errorf("removing stale nvidia symlinks: %w", err)
+	}
 
 	// Remove the mount point directory itself if it exists.
-	_, _ = r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
-		"rm", "-rf", "/run/host-nvidia")
+	if _, err := r.Run("sudo", "nsenter", "-t", leaderPID, "-m", "--",
+		"rm", "-rf", "/run/host-nvidia"); err != nil {
+		return fmt.Errorf("removing /run/host-nvidia: %w", err)
+	}
 
 	return nil
 }

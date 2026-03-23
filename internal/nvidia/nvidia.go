@@ -118,7 +118,7 @@ func LibDirMounts(libs []LibMapping) []nspawn.BindMount {
 		}
 		seen[dir] = idx
 		containerPath := fmt.Sprintf("/run/host-nvidia/%d", idx)
-		mounts = append(mounts, nspawn.BindMount{Host: dir, Container: containerPath})
+		mounts = append(mounts, nspawn.BindMount{Host: dir, Container: containerPath, ReadOnly: true})
 		idx++
 	}
 	return mounts
@@ -150,7 +150,7 @@ func HostICDFiles() []string {
 func ICDMounts(files []string) []nspawn.BindMount {
 	var mounts []nspawn.BindMount
 	for _, f := range files {
-		mounts = append(mounts, nspawn.BindMount{Host: f, Container: f})
+		mounts = append(mounts, nspawn.BindMount{Host: f, Container: f, ReadOnly: true})
 	}
 	return mounts
 }

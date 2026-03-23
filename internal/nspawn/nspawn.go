@@ -17,6 +17,7 @@ var validDisplay = regexp.MustCompile(`^[a-zA-Z0-9._-]*:[0-9]+(\.[0-9]+)?$`)
 type BindMount struct {
 	Host      string
 	Container string
+	ReadOnly  bool
 }
 
 // xauthorityPatterns are searched in XDG_RUNTIME_DIR when $XAUTHORITY is unset.
@@ -120,13 +121,13 @@ func DetectHostSockets(uid int) []BindMount {
 	var mounts []BindMount
 	for _, c := range checks {
 		if _, err := os.Stat(c.hostPath); err == nil {
-			mounts = append(mounts, BindMount{c.hostPath, c.containerPath})
+			mounts = append(mounts, BindMount{Host: c.hostPath, Container: c.containerPath})
 		}
 	}
 
 	// Xauthority — required for X11 display access
 	if xa := findXAuthority(uid); xa != "" {
-		mounts = append(mounts, BindMount{xa, "/run/host-xauthority"})
+		mounts = append(mounts, BindMount{Host: xa, Container: "/run/host-xauthority"})
 	}
 
 	return mounts
@@ -140,7 +141,7 @@ func DetectDRIDevices() []BindMount {
 	for _, pattern := range []string{"/dev/dri/card*", "/dev/dri/renderD*"} {
 		matches, _ := filepath.Glob(pattern)
 		for _, dev := range matches {
-			mounts = append(mounts, BindMount{dev, dev})
+			mounts = append(mounts, BindMount{Host: dev, Container: dev})
 		}
 	}
 	return mounts
@@ -167,7 +168,11 @@ func BuildBootArgs(rootfs, machine, intuneHome, containerHome string, sockets []
 		args = append(args, fmt.Sprintf("--property=DeviceAllow=%s rwm", dev.Host))
 	}
 	for _, s := range sockets {
-		args = append(args, fmt.Sprintf("--bind=%s:%s", s.Host, s.Container))
+		if s.ReadOnly {
+			args = append(args, fmt.Sprintf("--bind-ro=%s:%s", s.Host, s.Container))
+		} else {
+			args = append(args, fmt.Sprintf("--bind=%s:%s", s.Host, s.Container))
+		}
 	}
 	args = append(args, "--console=pipe", "-b")
 	return args
