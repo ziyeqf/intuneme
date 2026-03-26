@@ -50,7 +50,7 @@ directories entirely — a full uninstall of all intuneme artifacts.`,
 			}
 			rep.Message("[dry-run] Would remove udev rules")
 			rep.Message("[dry-run] Would remove polkit rule")
-			rep.Message("[dry-run] Would remove %s", root)
+			rep.Message("[dry-run] Would remove rootfs at %s", cfg.RootfsPath)
 			if destroyAll {
 				rep.Message("[dry-run] Would disable and remove GNOME extension")
 				rep.Message("[dry-run] Would remove polkit policy action")
@@ -101,7 +101,10 @@ directories entirely — a full uninstall of all intuneme artifacts.`,
 		_ = os.Remove(fmt.Sprintf("%s/config.toml", root))
 
 		// Clean intune state from ~/Intune (persists via bind mount)
-		home, _ := os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil || !filepath.IsAbs(home) {
+			return fmt.Errorf("cannot determine home directory: %w", err)
+		}
 		intuneHome := filepath.Join(home, "Intune")
 
 		if destroyAll {
