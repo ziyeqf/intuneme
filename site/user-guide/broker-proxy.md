@@ -35,6 +35,8 @@ intuneme stop && intuneme start
 
 This removes the D-Bus activation file and stops the proxy. The bind mount is also removed on the next start.
 
+`intuneme destroy --all` also removes the D-Bus service file as part of a full uninstall.
+
 ## Requirements
 
 - Container must be running (`intuneme start`)
