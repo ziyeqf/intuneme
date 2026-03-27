@@ -18,6 +18,16 @@ intuneme extension install
 
 Log out and back in to activate the extension. After logging back in, the intuneme toggle appears in the Quick Settings panel (the panel that opens from the top-right corner of the screen).
 
+## Uninstall
+
+The extension is removed when you run a full uninstall:
+
+```bash
+intuneme destroy --all
+```
+
+This also removes the polkit policy action that enables the extension's passwordless operations. See [Upgrading — Re-enrollment](upgrading.md#re-enrollment) for details on what `destroy --all` removes.
+
 ## What the extension provides
 
 - **Quick Settings toggle** — Displays the current container state. Clicking it starts or stops the container.
