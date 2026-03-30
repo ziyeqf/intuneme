@@ -76,6 +76,10 @@ These are configured by the build script during image creation (not static files
 #### Services
 - `microsoft-identity-device-broker.service` is enabled at build time
 
+## Image Extraction
+
+The `init` and `recreate` commands pull the OCI image and extract it to `rootfs/`. The `--tmp-dir` flag allows overriding the temp directory used during extraction (defaults to system tmp). This is useful on hosts where `/tmp` is a small tmpfs — the extracted image can be several GB before being moved to the final rootfs path.
+
 ## Image Distribution
 
 Images are published to `ghcr.io/frostyard/ubuntu-intune` with tags:

@@ -175,9 +175,20 @@ The CLI uses `frostyard/clix` and `frostyard/std/reporter` for consistent output
 - **Verbose** — `clix.Verbose` flag enables verbose output.
 - **JSON output** — `clix.OutputJSON()` provides `--output json` support (used by `status`).
 
+### Sudoers Rule Safety
+
+The `internal/sudoers/` package writes the nsenter sudoers rule via a safe workflow: write to a temp file, validate syntax with `visudo -c -f <tmpfile>`, then `sudo install` to `/etc/sudoers.d/intuneme-exec`. This prevents a broken sudoers file from locking out sudo. The rule is scoped to a specific nsenter invocation pattern: `/usr/bin/nsenter -t * -m -u -i -n -p -- /bin/su -s /bin/bash <user> -c *`.
+
 ### Runner Abstraction
 
-All shell commands go through the `runner.Runner` interface (`internal/runner/`), which provides `Run()`, `RunAttached()`, `RunBackground()`, and `LookPath()`. This makes command execution mockable for testing.
+All shell commands go through the `runner.Runner` interface (`internal/runner/`), which is mockable for testing:
+
+| Method | Behavior | Used for |
+|--------|----------|----------|
+| `Run()` | Captures combined output | Most commands (install, machinectl, nvidia detection) |
+| `RunAttached()` | Stdin/stdout/stderr attached to terminal | Interactive commands (shell, password prompt) |
+| `RunBackground()` | Starts detached, returns immediately | Broker proxy daemon |
+| `LookPath()` | Checks if binary is in PATH | Puller tool detection |
 
 ### OCI Image Resolution
 
