@@ -330,6 +330,25 @@ func TestIsVideoDevice(t *testing.T) {
 	}
 }
 
+func TestUSBDevNodePath(t *testing.T) {
+	tests := []struct {
+		bus, dev int
+		want     string
+	}{
+		{3, 9, "/dev/bus/usb/003/009"},
+		{1, 1, "/dev/bus/usb/001/001"},
+		{0, 0, "/dev/bus/usb/000/000"},
+		{10, 100, "/dev/bus/usb/010/100"},
+		{255, 128, "/dev/bus/usb/255/128"},
+	}
+	for _, tt := range tests {
+		got := usbDevNodePath(tt.bus, tt.dev)
+		if got != tt.want {
+			t.Errorf("usbDevNodePath(%d, %d) = %q, want %q", tt.bus, tt.dev, got, tt.want)
+		}
+	}
+}
+
 func TestYubikeyDeviceDevices(t *testing.T) {
 	dev := YubikeyDevice{
 		USBDevice:     "/dev/bus/usb/003/009",
