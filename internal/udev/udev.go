@@ -176,7 +176,7 @@ func DetectYubikeys() []YubikeyDevice {
 			continue
 		}
 
-		usbDevNode := fmt.Sprintf("/dev/bus/usb/%03d/%03d", busNum, devNum)
+		usbDevNode := usbDevNodePath(busNum, devNum)
 		// Verify the device node exists.
 		if !fileExists(usbDevNode) {
 			continue
@@ -195,6 +195,11 @@ func DetectYubikeys() []YubikeyDevice {
 	}
 
 	return devices
+}
+
+// usbDevNodePath returns the /dev/bus/usb device node path for the given bus and device numbers.
+func usbDevNodePath(bus, dev int) string {
+	return fmt.Sprintf("/dev/bus/usb/%03d/%03d", bus, dev)
 }
 
 // readSysfsAttr reads a single sysfs attribute file.
