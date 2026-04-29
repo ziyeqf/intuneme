@@ -92,7 +92,7 @@ YubiKeys and video capture devices (webcams) can be forwarded into the running c
 **Forwarding mechanism** (`udev.ForwardDevice()`):
 1. Get container leader PID via `nspawn.LeaderPID()`
 2. Get device major:minor via `stat`
-3. Add `DeviceAllow` to the container's cgroup scope dynamically (`systemctl set-property machine-<name>.scope DevicePolicy=auto DeviceAllow=<dev> rwm`) — returns error on failure
+3. Add `DeviceAllow` to the container's actual cgroup unit dynamically (`machinectl show <name> -p Unit --value`, then `systemctl set-property <unit> DevicePolicy=auto DeviceAllow=<dev> rwm`) — returns error on failure
 4. Create the device node inside the container via `nsenter` + `mknod`
 5. Set permissions (restrictive `0660 root:video` for video devices, `0666` for others)
 6. Record in state directory (`/run/intuneme/devices/`) via `sudo.WriteFile()` for cleanup

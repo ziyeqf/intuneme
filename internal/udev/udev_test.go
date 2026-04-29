@@ -93,6 +93,15 @@ func TestScriptContent(t *testing.T) {
 	if !strings.Contains(content, "mknod") {
 		t.Error("script content missing mknod")
 	}
+	if !strings.Contains(content, `UNIT=$(machinectl show "$MACHINE" -p Unit --value`) {
+		t.Error("script content should query the actual machine unit")
+	}
+	if !strings.Contains(content, `systemctl set-property "$UNIT"`) {
+		t.Error("script content should set DeviceAllow on the actual machine unit")
+	}
+	if strings.Contains(content, `machine-${MACHINE}.scope`) {
+		t.Error("script content should not guess machine scope name")
+	}
 	if !strings.Contains(content, StateDir) {
 		t.Errorf("script content missing state dir %s", StateDir)
 	}
