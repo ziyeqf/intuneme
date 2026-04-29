@@ -50,6 +50,9 @@ apt install -y \
   unattended-upgrades \
   microsoft-identity-broker \
   pipewire-audio-client-libraries \
+  fonts-noto-cjk \
+  fonts-noto-color-emoji \
+  locales \
   mesa-vulkan-drivers \
   mesa-va-drivers \
   intel-media-va-driver \
@@ -64,6 +67,11 @@ apt install -y \
   sudo \
   cracklib-runtime \
   upower
+
+# CJK rendering and XIM input paths need real UTF-8 locales available.
+sed -i 's/^# \(en_US.UTF-8 UTF-8\)$/\1/' /etc/locale.gen
+sed -i 's/^# \(zh_CN.UTF-8 UTF-8\)$/\1/' /etc/locale.gen
+locale-gen
 
 # Edge needs fixes to install properly
 # Download Edge deb without installing

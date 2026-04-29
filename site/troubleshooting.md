@@ -97,6 +97,29 @@ Common issues and solutions. Click an item to expand it.
 
     Edge will create a new profile on next launch.
 
+??? question "Chinese text shows as boxes or Fcitx5 cannot input Chinese in Edge"
+    Chinese rendering requires CJK fonts in the container image. Current images include Noto CJK fonts and UTF-8 locales; if you are on an older image, update with:
+
+    ```bash
+    intuneme recreate
+    ```
+
+    The default Edge launcher uses native Wayland and enables Chromium's Wayland input-method path. On KDE Plasma, make sure Fcitx 5 is selected in System Settings -> Virtual Keyboard. On GNOME, make sure Fcitx 5 is running in the host session.
+
+    You can also force a Wayland text-input protocol version:
+
+    ```bash
+    intuneme open edge --wayland-text-input-version 3
+    ```
+
+    If native Wayland input still does not work for your compositor, use the XWayland/XIM fallback:
+
+    ```bash
+    intuneme open edge --x11
+    ```
+
+    This uses the host XWayland/XIM bridge and sets Fcitx-related input variables for Edge. XWayland can still be used from a Wayland desktop.
+
 ??? question "No sound in Edge or other container apps"
     Check that PipeWire is forwarded. The host needs a PipeWire socket at `/run/user/$UID/pipewire-0`:
 

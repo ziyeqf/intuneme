@@ -4,14 +4,22 @@
 # (cannot create nested user namespaces). The renderer sandbox stays active.
 set -- '--disable-gpu-sandbox' "$@"
 
-if [ -n "$WAYLAND_DISPLAY" ]
-then
+edge_ozone="${INTUNEME_EDGE_OZONE:-auto}"
+
+if [ "$edge_ozone" = "x11" ]; then
+    unset -v WAYLAND_DISPLAY
+    set -- '--ozone-platform=x11' "$@"
+elif [ "$edge_ozone" = "wayland" ] || { [ "$edge_ozone" = "auto" ] && [ -S "$WAYLAND_DISPLAY" ]; }; then
     unset -v DISPLAY
     set -- \
         '--enable-features=UseOzonePlatform' \
         '--enable-features=WebRTCPipeWireCapturer' \
+        '--enable-wayland-ime' \
         '--ozone-platform=wayland' \
         "$@"
+    if [ -n "${INTUNEME_EDGE_WAYLAND_TEXT_INPUT_VERSION:-}" ]; then
+        set -- "--wayland-text-input-version=${INTUNEME_EDGE_WAYLAND_TEXT_INPUT_VERSION}" "$@"
+    fi
 fi
 
-/usr/bin/microsoft-edge "$@"
+exec /usr/bin/microsoft-edge "$@"
